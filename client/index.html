@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        "use strict";
+    
+        var canvas;
+        var ctx;
+        var socket; 
+		var mousePos;
+		
+		var draws = {};
+		
+		var user = 'user' + (Math.floor((Math.random()*1000)) + 1);
+		
+        var square = {
+            x: 0, 
+            y: 0, 
+            height: 100, 
+            width: 100,
+			color: "black"
+			// red - "#FF0000"
+        };
+		 
+		function setup(){
+			var time = new Date().getTime();
+			var x = Math.floor(Math.random()*(300-10)+10); //random x position
+			var y = Math.floor(Math.random()*(300-10)+10); //random y position
+			draws[user] = {lastUpdate: time, x: x, y: y, width: 100, height: 100, color: "black"};
+		}
+
+		 
+		function handleMessage(data){
+			 if( !draws[data.name] ){
+				draws[data.name] = data.coords;
+				draws[data.name].color = data.color;
+			 }
+			 else if( data.coords.lastUpdate > draws[data.name].lastUpdate ){
+				draws[data.name] = data.coords;
+				draws[data.name].color = data.color;
+			 }
+			 draw(); //redraw after updates
+
+		}
+		
+		function draw(){
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+			var keys = Object.keys(draws);
+
+			for(var i = 0; i < keys.length; i++){
+				var drawCall = draws[ keys[i] ];
+				ctx.fillStyle = drawCall.color;
+				ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
+			}
+		}
+
+        /*
+		function draw(){
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			
+			var keys = Object.keys(draws);
+			//console.log(keys);
+			for(var i = 0; i < keys.length; i++){
+				var drawCall = draws[keys[i]];
+				ctx.fillStyle = drawCall.color;
+				ctx.fillRect(drawCall.x, drawCall.y, drawCall.width, drawCall.height);
+			}
+			
+		}
+		
+		function getMousePos(canvas, evt) {
+			var rect = canvas.getBoundingClientRect();
+			return {
+			  x: evt.clientX - rect.left,
+			  y: evt.clientY - rect.top
+			};
+       }
+		*/
+        function init() {
+            canvas = document.querySelector("#canvas");
+            ctx = canvas.getContext("2d");
+			setup();
+			/*
+			canvas.addEventListener('click', function(evt) { 
+				//mousePos = getMousePos(canvas, evt);
+				//var message = 'Mouse position: ' + mousePos.x + ',' + mousePos.y;
+				//console.log(message);
+				
+				//setCalls();
+			}, false);
+			*/
+            socket = io.connect();
+            
+            socket.on('connect', function () {
+				console.log("connected");
+                setInterval(function (){
+					var time = new Date().getTime();
+
+					draws[user].lastUpdate = time;
+					draws[user].x += 5;
+					socket.emit('draw', { name: user, coords: draws[user] });
+					draw();
+					}, 3000);
+            });      
+            
+            socket.on('updatedSquares', handleMessage);
+        }
+
+      window.onload = init;
+    </script>
+</head>
+<body>
+    <canvas id="canvas" height="500" width="500">Please use an HTML 5 browser</canvas>
+</body>
+</html>
